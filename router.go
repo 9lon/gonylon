@@ -16,23 +16,45 @@ func Router(router *gin.Engine, baseURL string, ct interface{}) {
 
 	for i := 0; i < routeType.NumMethod(); i++ {
 		method := routeValue.Method(i)
-		m, p := methodToRoute(routeType.Method(i).Name)
+		m, p, rule := methodToRoute(routeType.Method(i).Name)
 		url := baseURL + "/" + p
 		// fmt.Println(m, p)
 		switch m {
 		case "Get":
-			router.GET(url, contextAgent(method))
+			if rule {
+				router.GET(url, AuthMiddleware, contextAgent(method))
+			} else {
+				router.GET(url, contextAgent(method))
+			}
 		case "Post":
-			router.POST(url, contextAgent(method))
-		case "Put":
-			router.PUT(url, contextAgent(method))
-		case "Patch":
-			router.PATCH(url, contextAgent(method))
-		case "Delete":
-			router.DELETE(url, contextAgent(method))
-		}
 
-		// router.GET("/x", contextAgent(method))
+			if rule {
+				router.POST(url, AuthMiddleware, contextAgent(method))
+			} else {
+				router.POST(url, contextAgent(method))
+			}
+		case "Put":
+
+			if rule {
+				router.PUT(url, AuthMiddleware, contextAgent(method))
+			} else {
+				router.PUT(url, contextAgent(method))
+			}
+		case "Patch":
+
+			if rule {
+				router.PATCH(url, AuthMiddleware, contextAgent(method))
+			} else {
+				router.PATCH(url, contextAgent(method))
+			}
+		case "Delete":
+
+			if rule {
+				router.DELETE(url, AuthMiddleware, contextAgent(method))
+			} else {
+				router.DELETE(url, contextAgent(method))
+			}
+		}
 
 	}
 
@@ -45,7 +67,7 @@ func contextAgent(method reflect.Value) func(*gin.Context) {
 	}
 }
 
-func methodToRoute(methodName string) (method string, path string) {
+func methodToRoute(methodName string) (method string, path string, rule bool) {
 	var camel = regexp.MustCompile("(^[^A-Z0-9]*|[A-Z0-9]*)([A-Z0-9][^A-Z]+|$)")
 	var a []string
 	for _, sub := range camel.FindAllStringSubmatch(methodName, -1) {
@@ -56,6 +78,12 @@ func methodToRoute(methodName string) (method string, path string) {
 			a = append(a, sub[2])
 		}
 	}
-	//fmt.Println(a)
-	return a[0], strings.ToLower(strings.Join(a[1:len(a)], "/"))
+
+	checkRule := false
+	if a[len(a)-1] == "Rule" {
+		a = a[0 : len(a)-1]
+		checkRule = true
+	}
+	// fmt.Println(a)
+	return a[0], strings.ToLower(strings.Join(a[1:len(a)], "/")), checkRule
 }
